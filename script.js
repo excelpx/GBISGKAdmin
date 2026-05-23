@@ -1,4 +1,4 @@
-﻿const DB_NAME = 'GerejaDataHubDB_v1';
+const DB_NAME = 'GerejaDataHubDB_v1';
 const STORE_NAME = 'files';
 
 let activeTab = 'dashboard';
@@ -10,8 +10,20 @@ let currentSheetName = '';
 let searchQuery = '';
 let selectedMonth = '';
 let activeDocPreviewUrl = null;
-let photoDragMode = false;
 let currentDraggedPhotoId = null;
+let pendingDocFile = null;
+let docCustomCategories = [];
+let selectedDocCategory = null;
+let selectedDocFilterCategory = 'semua';
+let currentDocsFetchId = 0;
+let uploadInProgress = false;
+let selectedDocSearchQuery = '';
+let externalDocLinks = [];
+let externalYouthDocLinks = [];
+let driveFileCache = null;
+let driveFileCacheTimestamp = 0;
+let driveFileCachePromise = null;
+const DRIVE_FILE_CACHE_TTL = 5000;
 
 let stats = {
     totalRows: 0,
@@ -66,7 +78,35 @@ async function uploadFileToDrive(file, category, extra = {}) {
         displayOrder: extra.displayOrder || Date.now(),
         file: base64
     });
+    invalidateDriveFileCache();
     return result.file;
+}
+
+function invalidateDriveFileCache() {
+    driveFileCache = null;
+    driveFileCacheTimestamp = 0;
+    driveFileCachePromise = null;
+}
+
+async function getCachedDriveFiles({ forceRefresh = false } = {}) {
+    if (!forceRefresh && driveFileCache && (Date.now() - driveFileCacheTimestamp) < DRIVE_FILE_CACHE_TTL) {
+        return driveFileCache;
+    }
+    if (!forceRefresh && driveFileCachePromise) {
+        return driveFileCachePromise;
+    }
+    driveFileCachePromise = driveApi('list')
+        .then((result) => {
+            driveFileCache = result.files || [];
+            driveFileCacheTimestamp = Date.now();
+            driveFileCachePromise = null;
+            return driveFileCache;
+        })
+        .catch((err) => {
+            driveFileCachePromise = null;
+            throw err;
+        });
+    return driveFileCachePromise;
 }
 
 async function getDriveFileBlob(fileId) {
@@ -218,10 +258,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         photoDropzone.addEventListener('dragleave', handlePhotoDropzoneDragLeave);
         photoDropzone.addEventListener('drop', handlePhotoDropzoneDrop);
     }
-    updatePhotoDragModeButton();
 });
 
-function checkSession() {
+async function checkSession() {
     const userStr = localStorage.getItem('gereja_user');
     const tokenStr = localStorage.getItem('gereja_token');
     if (userStr && tokenStr) {
@@ -232,10 +271,30 @@ function checkSession() {
         document.getElementById('user-profile-email').innerText = currentUser.email;
         document.getElementById('banner-email').innerText = currentUser.email;
         document.getElementById('user-avatar-initial').innerText = currentUser.displayName.slice(0,1);
-        loadDashboardStats();
-        fetchExcelFilesList();
-        fetchPhotosList();
-        fetchDocsList();
+        
+        // Load custom categories and sanitize invalid values
+        const stored = localStorage.getItem('doc_custom_categories');
+        const loaded = stored ? JSON.parse(stored) : [];
+        docCustomCategories = Array.isArray(loaded)
+            ? loaded.filter((cat) => typeof cat === 'string' && cat.trim() && !['null', 'undefined'].includes(cat.trim().toLowerCase()))
+            : [];
+        localStorage.setItem('doc_custom_categories', JSON.stringify(docCustomCategories));
+        updateDocCategoryFilters();
+
+        const externalStored = localStorage.getItem('external_doc_links');
+        externalDocLinks = externalStored ? JSON.parse(externalStored) : [];
+        if (!Array.isArray(externalDocLinks)) externalDocLinks = [];
+
+        const externalYouthStored = localStorage.getItem('external_youth_doc_links');
+        externalYouthDocLinks = externalYouthStored ? JSON.parse(externalYouthStored) : [];
+        if (!Array.isArray(externalYouthDocLinks)) externalYouthDocLinks = [];
+
+        await Promise.all([
+            loadDashboardStats(),
+            fetchExcelFilesList(),
+            fetchPhotosList(),
+            fetchDocsList()
+        ]);
     } else {
         document.getElementById('auth-gate').classList.remove('hidden');
         document.getElementById('app-workspace').classList.add('hidden');
@@ -293,7 +352,8 @@ function triggerLogout() {
 
 function switchTab(tabId) {
     activeTab = tabId;
-    const screens = ['dashboard', 'excel', 'photo'];
+    const screens = ['dashboard', 'excel', 'photo', 'youth'];
+
     screens.forEach((sc) => {
         const layer = document.getElementById(`view-${sc}`);
         if (sc === tabId) {
@@ -302,10 +362,12 @@ function switchTab(tabId) {
             layer.classList.add('hidden');
         }
     });
+
     const btns = document.querySelectorAll('.tab-btn');
     btns.forEach((btn) => {
         const isThis = btn.id === `tab-btn-${tabId}`;
         const ico = btn.querySelector('i');
+
         if (isThis) {
             btn.className = "tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer bg-white text-blue-600 shadow-xs";
             if (ico) ico.className = "w-3.5 h-3.5 text-blue-600";
@@ -314,10 +376,12 @@ function switchTab(tabId) {
             if (ico) ico.className = "w-3.5 h-3.5 text-slate-400";
         }
     });
+
     const mobBtns = document.querySelectorAll('.mobile-tab-btn');
     mobBtns.forEach((btn) => {
         const isThis = btn.id === `mobile-tab-btn-${tabId}`;
         const ico = btn.querySelector('i');
+
         if (isThis) {
             btn.className = "mobile-tab-btn text-left w-full px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all bg-blue-600 text-white shadow-xs";
             if (ico) ico.className = "w-4 h-4 text-white";
@@ -326,7 +390,22 @@ function switchTab(tabId) {
             if (ico) ico.className = "w-4 h-4 text-slate-400";
         }
     });
+
     loadDashboardStats();
+
+    if (tabId === 'photo' || tabId === 'youth') {
+        selectedDocFilterCategory = 'semua';
+        selectedDocSearchQuery = '';
+
+        const docsSearchInput = document.getElementById('docs-search-input');
+        if (docsSearchInput) docsSearchInput.value = '';
+        const youthSearchInput = document.getElementById('youth-search-input');
+        if (youthSearchInput) youthSearchInput.value = '';
+
+        initializeDocCategoryFilter();
+        fetchDocsList();
+    }
+
     lucide.createIcons();
 }
 
@@ -352,8 +431,7 @@ function toggleMobileMenu(forceState) {
 
 async function loadDashboardStats() {
     try {
-        const result = await driveApi('list');
-        const files = result.files || [];
+        const files = await getCachedDriveFiles();
         const excels = files.filter(f => f.category === 'excels');
         const photos = files.filter(f => f.category === 'photos');
         stats.filesCount = excels.length;
@@ -379,8 +457,8 @@ async function fetchExcelFilesList() {
     const container = document.getElementById('excel-files-list');
     container.innerHTML = '';
     try {
-        const result = await driveApi('list', { category: 'excels' });
-        const items = result.files || [];
+        const files = await getCachedDriveFiles();
+        const items = files.filter(f => f.category === 'excels');
         document.getElementById('excel-list-loading').classList.add('hidden');
         if (items.length === 0) {
             container.innerHTML = `<p class="text-[10px] text-slate-400 font-medium text-center py-4">Belum ada file Excel.</p>`;
@@ -798,30 +876,6 @@ async function fetchPhotosList() {
             const cell = document.createElement('div');
             cell.className = "bg-white border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-md transition-all flex flex-col group relative";
             let imageSrcUrl = URL.createObjectURL(pic.blob);
-            if (photoDragMode) {
-                cell.draggable = true;
-                cell.dataset.photoId = pic.id;
-                cell.classList.add('drag-enabled');
-                cell.addEventListener('dragstart', (event) => {
-                    currentDraggedPhotoId = pic.id;
-                    event.dataTransfer.setData('text/plain', pic.id);
-                    event.dataTransfer.effectAllowed = 'move';
-                    cell.classList.add('opacity-50');
-                });
-                cell.addEventListener('dragend', () => { currentDraggedPhotoId = null; cell.classList.remove('opacity-50'); });
-                cell.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; cell.classList.add('drag-over-target'); });
-                cell.addEventListener('dragleave', () => cell.classList.remove('drag-over-target'));
-                cell.addEventListener('drop', async (event) => {
-                    event.preventDefault();
-                    cell.classList.remove('drag-over-target');
-                    const targetPhotoId = pic.id;
-                    if (!currentDraggedPhotoId || currentDraggedPhotoId === targetPhotoId) return;
-                    const reordered = reorderPhotoList(photoList, currentDraggedPhotoId, targetPhotoId);
-                    await savePhotoOrderSequence(reordered);
-                    fetchPhotosList();
-                    toast('Urutan galeri berhasil diperbarui.', 'success');
-                });
-            }
             cell.innerHTML = `
                 <div class="h-40 overflow-hidden bg-slate-50 relative">
                     <img src="${imageSrcUrl}" alt="Arsip" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
@@ -848,40 +902,6 @@ function getPhotoOrderValue(photo) {
     return typeof photo.displayOrder === 'number' ? photo.displayOrder : new Date(photo.createdTime).getTime();
 }
 
-function reorderPhotoList(photoList, draggedId, targetId) {
-    const draggedIndex = photoList.findIndex((item) => item.id === draggedId);
-    const targetIndex = photoList.findIndex((item) => item.id === targetId);
-    if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) return photoList;
-    const [movedItem] = photoList.splice(draggedIndex, 1);
-    photoList.splice(targetIndex, 0, movedItem);
-    return photoList;
-}
-
-async function savePhotoOrderSequence(photoList) {
-    const count = photoList.length;
-    const orders = photoList.map((item, index) => ({ id: item.id, displayOrder: count - index }));
-    await driveApi('reorder', { orders });
-}
-
-
-function updatePhotoDragModeButton() {
-    const btn = document.getElementById('toggle-drag-mode-btn');
-    if (!btn) return;
-    if (photoDragMode) {
-        btn.className = 'px-3 py-2 text-[10px] font-semibold rounded-xl border border-blue-200 bg-blue-600 text-white hover:bg-blue-700 transition';
-        btn.innerText = 'Nonaktifkan Drag Mode';
-    } else {
-        btn.className = 'px-3 py-2 text-[10px] font-semibold rounded-xl border border-slate-200 text-slate-600 bg-slate-50 hover:bg-slate-100 transition';
-        btn.innerText = 'Aktifkan Drag Mode';
-    }
-}
-
-function togglePhotoDragMode() {
-    photoDragMode = !photoDragMode;
-    updatePhotoDragModeButton();
-    fetchPhotosList();
-    toast(photoDragMode ? 'Drag Mode aktif — seret kartu foto untuk mengubah urutan.' : 'Drag Mode nonaktif.', 'success');
-}
 
 function handlePhotoDropzoneDragOver(event) {
     event.preventDefault();
@@ -912,53 +932,681 @@ function triggerPhotoSecretInput() {
 }
 
 function triggerDocUploadInput() {
-    document.getElementById('doc-hidden-file-input').click();
+    // If opened from Youth tab, remember selected youth category to preselect in modal
+    try {
+        if (activeTab === 'youth') {
+            const sel = document.getElementById('youth-upload-category');
+            window.pendingUploadCategoryFromUI = sel ? sel.value : null;
+            window.pendingUploadFromYouth = true;
+        } else {
+            window.pendingUploadCategoryFromUI = null;
+            window.pendingUploadFromYouth = false;
+        }
+    } catch (e) { window.pendingUploadCategoryFromUI = null; window.pendingUploadFromYouth = false; }
+
+    const uploadInputId = activeTab === 'youth' ? 'youth-doc-hidden-file-input' : 'doc-hidden-file-input';
+    const uploadInput = document.getElementById(uploadInputId);
+    if (uploadInput) uploadInput.click();
 }
 
 async function handleDocLocalUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
-    try {
-        await uploadFileToDrive(file, 'docs');
-        fetchDocsList();
-        loadDashboardStats();
-        toast(`Dokumen "${file.name}" berhasil diunggah ke Google Drive!`, 'success');
-    } catch (err) {
-        console.error(err);
-        toast(err.message || 'Gagal upload dokumen ke Google Drive.', 'error');
-    } finally {
-        event.target.value = '';
+    
+    // Simpan file yang tertunda dan tampilkan modal kategori
+    pendingDocFile = file;
+    const pre = window.pendingUploadCategoryFromUI || null;
+    loadCategoryModal(pre);
+    // clear pending UI hint
+    window.pendingUploadCategoryFromUI = null;
+    
+    event.target.value = '';
+}
+
+
+function loadCategoryModal(preselectCategory) {
+    // Muat kategori custom dari localStorage dan hapus nilai tidak valid
+    const stored = localStorage.getItem('doc_custom_categories');
+    const loaded = stored ? JSON.parse(stored) : [];
+    docCustomCategories = Array.isArray(loaded)
+        ? loaded.filter((cat) => typeof cat === 'string' && cat.trim() && !['null', 'undefined'].includes(cat.trim().toLowerCase()))
+        : [];
+    localStorage.setItem('doc_custom_categories', JSON.stringify(docCustomCategories));
+    
+    // Update filter buttons dengan kategori custom
+    updateDocCategoryFilters();
+    
+    // Reset pilihan kategori di modal
+    selectedDocCategory = preselectCategory || null;
+    document.querySelectorAll('.category-option').forEach(btn => {
+        btn.classList.remove('bg-blue-100', 'border-blue-400');
+    });
+
+    // Reset tombol aksi bila bukan mode ubah kategori
+    const actionBtn = document.getElementById('doc-category-action-btn');
+    if (actionBtn && !window.isCategoryChangeMode) {
+        actionBtn.disabled = false;
+        actionBtn.textContent = 'Lanjutkan Upload';
+        actionBtn.onclick = proceedUploadDocWithCategory;
+    }
+    
+    // Update tampilan custom categories
+    const customContainer = document.getElementById('doc-custom-categories');
+    customContainer.innerHTML = '';
+    if (docCustomCategories.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.className = 'text-[10px] text-slate-400 px-3 py-2 rounded-xl border border-dashed border-slate-200 bg-slate-50';
+        emptyMessage.innerText = 'Belum ada kategori custom. Tambahkan kategori baru untuk melihat opsi hapus.';
+        customContainer.appendChild(emptyMessage);
+    }
+    docCustomCategories.forEach((cat) => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between gap-2';
+
+        const btn = document.createElement('button');
+        btn.onclick = () => selectCategory(cat);
+        btn.className = 'category-option w-full text-left p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition flex items-center gap-3';
+        btn.setAttribute('data-value', cat);
+        btn.innerHTML = `
+            <i data-lucide="tag" class="w-4 h-4 text-slate-500"></i>
+            <div>
+                <p class="text-xs font-semibold text-slate-900">${cat}</p>
+                <p class="text-[9px] text-slate-500">Kategori custom</p>
+            </div>
+        `;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'inline-flex items-center justify-center gap-1 px-3 h-8 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-red-50 hover:text-red-600 transition text-[10px] font-semibold';
+        removeBtn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>Hapus</span>`;
+        removeBtn.onclick = (event) => {
+            event.stopPropagation();
+            deleteCustomCategory(cat);
+        };
+
+        item.appendChild(btn);
+        item.appendChild(removeBtn);
+        customContainer.appendChild(item);
+    });
+
+    // If a preselectCategory is provided and it's not in docCustomCategories or builtins, show a temporary option
+    if (preselectCategory) {
+        const existsCustom = docCustomCategories.some(c => String(c).toLowerCase() === String(preselectCategory).toLowerCase());
+        const builtinMatch = Array.from(document.querySelectorAll('.category-option')).some(b => b.getAttribute('data-value') === preselectCategory);
+        if (!existsCustom && !builtinMatch) {
+            const btn = document.createElement('button');
+            btn.onclick = () => selectCategory(preselectCategory);
+            btn.className = 'category-option w-full text-left p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition flex items-center gap-3 mb-2';
+            btn.setAttribute('data-value', preselectCategory);
+            btn.innerHTML = `
+                <i data-lucide="tag" class="w-4 h-4 text-slate-500"></i>
+                <div>
+                    <p class="text-xs font-semibold text-slate-900">${escapeHtml(preselectCategory)}</p>
+                    <p class="text-[9px] text-slate-500">Kategori dari Youth</p>
+                </div>`;
+            customContainer.insertBefore(btn, customContainer.firstChild);
+        }
+    }
+    
+    lucide.createIcons();
+    // Highlight preselected category if any
+    if (selectedDocCategory) selectCategory(selectedDocCategory);
+    document.getElementById('doc-category-modal').classList.remove('hidden');
+}
+
+
+function closeCategoryModal() {
+    document.getElementById('doc-category-modal').classList.add('hidden');
+    pendingDocFile = null;
+    selectedDocCategory = null;
+    uploadInProgress = false;
+    window.pendingCategoryChangeDocId = null;
+    window.pendingCategoryChangeDocName = null;
+    window.isCategoryChangeMode = false;
+    // reset any pending youth upload flag
+    window.pendingUploadFromYouth = false;
+    
+    // Reset tombol aksi ke mode upload
+    const actionBtn = document.getElementById('doc-category-action-btn');
+    if (actionBtn) {
+        actionBtn.disabled = false;
+        actionBtn.textContent = 'Lanjutkan Upload';
+        actionBtn.onclick = proceedUploadDocWithCategory;
     }
 }
 
 
-async function fetchDocsList() {
-    const list = document.getElementById('docs-files-list');
-    list.innerHTML = '';
+function selectCategory(categoryValue) {
+    selectedDocCategory = categoryValue;
+    // Highlight pilihan
+    document.querySelectorAll('.category-option').forEach(btn => {
+        btn.classList.remove('bg-blue-100', 'border-blue-400');
+        const btnValue = btn.getAttribute('data-value');
+        if (btnValue === categoryValue) {
+            btn.classList.add('bg-blue-100', 'border-blue-400');
+        }
+    });
+    const actionBtn = document.getElementById('doc-category-action-btn');
+    if (actionBtn) {
+        actionBtn.disabled = false;
+    }
+}
+
+
+function toggleAddCustomCategory() {
+    const inputArea = document.getElementById('doc-custom-input-area');
+    const currentShow = !inputArea.classList.contains('hidden');
+    if (currentShow) {
+        inputArea.classList.add('hidden');
+        document.getElementById('doc-custom-category-input').value = '';
+    } else {
+        inputArea.classList.remove('hidden');
+        document.getElementById('doc-custom-category-input').focus();
+    }
+}
+
+
+async function saveCustomCategory() {
+    const input = document.getElementById('doc-custom-category-input');
+    const newCategory = input.value.trim();
+    
+    if (!newCategory) {
+        toast('Nama kategori tidak boleh kosong.', 'error');
+        return;
+    }
+    
+    const normalizedNewCategory = newCategory.trim().toLowerCase();
+    if (docCustomCategories.some((cat) => cat.trim().toLowerCase() === normalizedNewCategory)) {
+        toast('Kategori sudah ada.', 'error');
+        return;
+    }
+    
+    // Simpan dengan nama asli (tanpa normalisasi), normalisasi terjadi saat upload
+    docCustomCategories.push(newCategory);
+    localStorage.setItem('doc_custom_categories', JSON.stringify(docCustomCategories));
+    
+    // Update filter buttons dengan kategori baru
+    updateDocCategoryFilters();
+    
+    // Reload modal dan pilih kategori baru
+    input.value = '';
+    updateDocCategoryFilters();
+    loadCategoryModal();
+    selectCategory(newCategory);
+    toast(`Kategori "${newCategory}" berhasil dibuat.`, 'success');
+}
+
+
+function deleteCustomCategory(categoryName) {
+    docCustomCategories = docCustomCategories.filter((cat) => cat !== categoryName);
+    localStorage.setItem('doc_custom_categories', JSON.stringify(docCustomCategories));
+    updateDocCategoryFilters();
+    loadCategoryModal();
+
+    const normalized = categoryName.toLowerCase().replace(/\s+/g, '_');
+    if (selectedDocFilterCategory === normalized) {
+        selectedDocFilterCategory = 'semua';
+        filterDocsByCategory('semua');
+    } else {
+        fetchDocsList();
+    }
+
+    if (selectedDocCategory === categoryName) {
+        selectedDocCategory = null;
+    }
+}
+
+
+function updateDocCategoryFilters() {
+    const filterContainerId = activeTab === 'youth' ? 'youth-docs-custom-category-filters' : 'docs-custom-category-filters';
+    const filterContainer = document.getElementById(filterContainerId);
+    if (!filterContainer) return;
+    filterContainer.innerHTML = '';
+    
+    docCustomCategories.forEach((cat) => {
+        const normalized = cat.toLowerCase().replace(/\s+/g, '_');
+        const btn = document.createElement('button');
+        btn.onclick = () => filterDocsByCategory(normalized);
+        btn.className = 'doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-blue-50 hover:border-blue-200 transition';
+        btn.setAttribute('data-category', normalized);
+        btn.textContent = cat;
+        filterContainer.appendChild(btn);
+    });
+}
+
+
+async function proceedUploadDocWithCategory() {
+    if (uploadInProgress) return;
+
+    if (!selectedDocCategory || ['null', 'undefined'].includes(String(selectedDocCategory).toLowerCase())) {
+        toast('Silakan pilih kategori dokumen yang valid terlebih dahulu.', 'error');
+        return;
+    }
+
+    if (!pendingDocFile) {
+        closeCategoryModal();
+        return;
+    }
+
+    const file = pendingDocFile;
+    const actionBtn = document.getElementById('doc-category-action-btn');
+
+    if (actionBtn) {
+        actionBtn.disabled = true;
+    }
+
+    uploadInProgress = true;
+
     try {
-        const result = await driveApi('list', { category: 'docs' });
-        const docs = result.files || [];
+        let normalizedCategory = String(selectedDocCategory)
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '_');
+
+        if (activeTab === 'youth' || window.pendingUploadFromYouth) {
+            if (!normalizedCategory.startsWith('youth_')) {
+                normalizedCategory = `youth_${normalizedCategory}`;
+            }
+        }
+
+        await uploadFileToDrive(file, normalizedCategory);
+        await refreshDriveLists();
+
+        closeCategoryModal();
+
+        toast(`Dokumen "${file.name}" berhasil diunggah ke Youth Dokumen!`, 'success');
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Gagal upload dokumen ke Google Drive.', 'error');
+
+        uploadInProgress = false;
+        if (actionBtn) {
+            actionBtn.disabled = false;
+        }
+    }
+
+    window.pendingUploadFromYouth = false;
+}
+
+
+async function fetchDocsList() {
+    const list = document.getElementById(activeTab === 'youth' ? 'youth-docs-files-list' : 'docs-files-list');
+    const fetchId = ++currentDocsFetchId;
+
+    if (!list) return;
+    list.innerHTML = `<div class="text-[10px] text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-2xl">Memuat dokumen...</div>`;
+
+    try {
+        const allFiles = await getCachedDriveFiles();
+
+        if (fetchId !== currentDocsFetchId) return;
+
+        let docs = allFiles.filter(f => {
+            if (!f.category) return false;
+            if (f.category === 'photos' || f.category === 'excels') return false;
+
+            const isYouthDoc = String(f.category).startsWith('youth_');
+
+            if (activeTab === 'youth') {
+                return isYouthDoc;
+            }
+
+            return !isYouthDoc;
+        });
+
+        const seen = new Set();
+        docs = docs.filter((doc) => {
+            if (seen.has(doc.id)) return false;
+            seen.add(doc.id);
+            return true;
+        });
+
+        if (selectedDocFilterCategory !== 'semua') {
+            if (activeTab === 'youth') {
+                docs = docs.filter(f => f.category === `youth_${selectedDocFilterCategory}`);
+            } else {
+                docs = docs.filter(f => f.category === selectedDocFilterCategory);
+            }
+        }
+
+        const query = selectedDocSearchQuery.trim().toLowerCase();
+        if (query) {
+            docs = docs.filter(f => (f.name || '').toLowerCase().includes(query));
+        }
+
         if (docs.length === 0) {
-            list.innerHTML = `<div class="text-[10px] text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-2xl">Belum ada dokumen pendukung.</div>`;
+            const label = activeTab === 'youth' ? 'Youth Dokumen' : 'Dokumen Gereja';
+            list.innerHTML = `<div class="text-[10px] text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-2xl">Belum ada ${label}.</div>`;
+            if (activeTab === 'youth') renderExternalYouthDocs();
             return;
         }
-        docs.sort((a,b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime());
+
+        docs.sort((a, b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime());
+
         docs.forEach((doc) => {
+            let rawCategory = doc.category || '';
+            let isYouthDoc = false;
+
+            if (rawCategory.startsWith('youth_')) {
+                isYouthDoc = true;
+                rawCategory = rawCategory.replace(/^youth_/, '');
+            }
+
+            const categoryDisplay = getCategoryDisplay(rawCategory);
+
             const item = document.createElement('div');
             item.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-2xl border border-slate-200 bg-slate-50';
+
             item.innerHTML = `
-                <div class="min-w-0"><p class="text-xs font-bold text-slate-900 truncate">${doc.name}</p><p class="text-[9px] text-slate-500 mt-1">${doc.mimeType || 'Dokumen'} • ${(parseInt(doc.size, 10) / 1024).toFixed(1)} KB</p></div>
-                <div class="flex items-center gap-2">
-                    <button onclick="previewDocFile('${doc.id}')" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-xl text-[10px] font-semibold transition">Pratinjau</button>
-                    <button onclick="triggerDocLocalDownload('${doc.id}', '${doc.name}')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-semibold transition">Unduh</button>
-                    <button onclick="triggerRemoveDocFile('${doc.id}')" class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-semibold transition">Hapus</button>
-                </div>`;
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <p class="text-xs font-bold text-slate-900 truncate">${escapeHtml(doc.name)}</p>
+                        <span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-[8px] font-semibold rounded-lg whitespace-nowrap">${categoryDisplay}</span>
+                        ${isYouthDoc ? '<span class="inline-block px-2 py-1 bg-purple-100 text-purple-700 text-[8px] font-semibold rounded-lg whitespace-nowrap">Youth</span>' : ''}
+                    </div>
+                    <p class="text-[9px] text-slate-500">${escapeHtml(doc.mimeType || 'Dokumen')} • ${(parseInt(doc.size, 10) / 1024).toFixed(1)} KB</p>
+                </div>
+
+                <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <button type="button" class="doc-preview-btn px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-xl text-[10px] font-semibold transition">Pratinjau</button>
+                    <button type="button" class="doc-change-category-btn px-3 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-xl text-[10px] font-semibold transition">Ubah Kategori</button>
+                    <button type="button" class="doc-download-btn px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-semibold transition">Unduh</button>
+                    <button type="button" class="doc-remove-btn px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-semibold transition">Hapus</button>
+                </div>
+            `;
+
+            item.querySelector('.doc-preview-btn').addEventListener('click', () => previewDocFile(doc.id));
+            item.querySelector('.doc-change-category-btn').addEventListener('click', () => triggerChangeDocCategory(doc.id, doc.name));
+            item.querySelector('.doc-download-btn').addEventListener('click', () => triggerDocLocalDownload(doc.id, doc.name));
+            item.querySelector('.doc-remove-btn').addEventListener('click', () => triggerRemoveDocFile(doc.id));
+
             list.appendChild(item);
         });
+
+        lucide.createIcons();
+        if (activeTab === 'youth') renderExternalYouthDocs();
     } catch (err) {
         console.error(err);
         toast(err.message || 'Gagal memuat dokumen dari Google Drive.', 'error');
     }
+}
+
+async function refreshDriveLists() {
+    invalidateDriveFileCache();
+    await Promise.all([
+        loadDashboardStats(),
+        fetchExcelFilesList(),
+        fetchDocsList()
+    ]);
+}
+
+
+function filterDocsByCategory(category) {
+    selectedDocFilterCategory = category;
+    
+    // Update button styling
+    document.querySelectorAll('.doc-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+        btn.classList.add('bg-slate-50', 'text-slate-600', 'border-slate-200');
+        if (btn.getAttribute('data-category') === category) {
+            btn.classList.remove('bg-slate-50', 'text-slate-600', 'border-slate-200');
+            btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+        }
+    });
+    
+    // Reload dokumen dengan filter baru
+    fetchDocsList();
+}
+
+function setDocSearchQuery(value) {
+    selectedDocSearchQuery = String(value || '');
+    fetchDocsList();
+}
+
+function saveExternalDocLinks() {
+    localStorage.setItem('external_doc_links', JSON.stringify(externalDocLinks));
+}
+
+function getLinkSource(url) {
+    if (!url) return 'Link Eksternal';
+    const lower = url.toLowerCase();
+    if (lower.includes('drive.google.com') || lower.includes('docs.google.com') || lower.includes('spreadsheets.google.com')) return 'Google Drive';
+    if (lower.includes('speedseet') || lower.includes('speedsheet')) return 'SpeedSheet';
+    return 'Link Eksternal';
+}
+
+function normalizeExternalLink(url) {
+    return String(url || '').trim();
+}
+
+function getGoogleDriveFileId(url) {
+    const patterns = [
+        /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/,
+        /docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/,
+        /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/
+    ];
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+    }
+    return null;
+}
+
+function getGoogleDrivePreviewUrl(url) {
+    const id = getGoogleDriveFileId(url);
+    if (!id) return url;
+    return `https://drive.google.com/file/d/${id}/preview`;
+}
+
+function getGoogleDriveDownloadUrl(url) {
+    const id = getGoogleDriveFileId(url);
+    if (!id) return url;
+    return `https://drive.google.com/uc?export=download&id=${id}`;
+}
+
+function addExternalDocLink(rawUrl) {
+    const url = normalizeExternalLink(rawUrl);
+    if (!url) {
+        toast('Silakan masukkan link yang valid.', 'error');
+        return;
+    }
+
+    const existing = externalDocLinks.some(link => link.url === url);
+    if (existing) {
+        toast('Link sudah terdaftar.', 'error');
+        return;
+    }
+
+    externalDocLinks.push({
+        url,
+        title: url,
+        source: getLinkSource(url),
+        createdAt: new Date().toISOString()
+    });
+    saveExternalDocLinks();
+    fetchDocsList();
+    toast('Link dokumen eksternal berhasil ditambahkan.', 'success');
+}
+
+function handleAddExternalDocLink() {
+    const input = document.getElementById('external-doc-link-input');
+    if (!input) return;
+    addExternalDocLink(input.value);
+    input.value = '';
+}
+
+function previewExternalLink(link) {
+    const previewContent = document.getElementById('doc-preview-content');
+    const titleEl = document.getElementById('doc-preview-title');
+    const infoEl = document.getElementById('doc-preview-info');
+    const openBtn = document.getElementById('doc-preview-open-btn');
+    try {
+        if (activeDocPreviewUrl) URL.revokeObjectURL(activeDocPreviewUrl);
+        const previewUrl = link.source === 'Google Drive' ? getGoogleDrivePreviewUrl(link.url) : link.url;
+        activeDocPreviewUrl = previewUrl;
+        titleEl.innerText = link.title || link.url;
+        infoEl.innerText = `${link.source} • ${link.url}`;
+        openBtn.classList.remove('hidden');
+        openBtn.onclick = openDocInNewTab;
+        previewContent.innerHTML = `<iframe src="${previewUrl}" class="w-full h-full border-0" title="Preview Link Dokumen"></iframe>`;
+        document.getElementById('doc-preview-modal').classList.remove('hidden');
+    } catch (err) {
+        console.error(err);
+        previewContent.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Tidak dapat memuat preview untuk link ini. Silakan buka di tab baru.</div>`;
+        titleEl.innerText = link.title || 'Preview Link Eksternal';
+        infoEl.innerText = `${link.source} • ${link.url}`;
+        openBtn.classList.remove('hidden');
+        openBtn.onclick = openDocInNewTab;
+        document.getElementById('doc-preview-modal').classList.remove('hidden');
+    }
+}
+
+function downloadExternalLink(link) {
+    const downloadUrl = link.source === 'Google Drive' ? getGoogleDriveDownloadUrl(link.url) : link.url;
+    const anchor = document.createElement('a');
+    anchor.href = downloadUrl;
+    anchor.target = '_blank';
+    anchor.rel = 'noreferrer noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+}
+
+function removeExternalDocLink(url) {
+    const idx = externalDocLinks.findIndex(l => l.url === url);
+    if (idx === -1) {
+        toast('Link eksternal tidak ditemukan.', 'error');
+        return;
+    }
+    externalDocLinks.splice(idx, 1);
+    saveExternalDocLinks();
+    fetchDocsList();
+    toast('Link eksternal berhasil dihapus.', 'success');
+}
+
+
+// ===== EXTERNAL YOUTH DOCUMENT LINKS =====
+function saveExternalYouthDocLinks() {
+    localStorage.setItem('external_youth_doc_links', JSON.stringify(externalYouthDocLinks));
+}
+
+function renderExternalYouthDocs() {
+    const list = document.getElementById('youth-external-docs-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    if (externalYouthDocLinks.length === 0) return;
+    
+    externalYouthDocLinks.forEach((link) => {
+        const item = document.createElement('div');
+        item.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-2xl border border-slate-200 bg-slate-50';
+        
+        item.innerHTML = `
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <p class="text-xs font-bold text-slate-900 truncate">${escapeHtml(link.title || link.url)}</p>
+                    <span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-[8px] font-semibold rounded-lg whitespace-nowrap">${link.source || 'External'}</span>
+                </div>
+                <p class="text-[9px] text-slate-500 truncate">${escapeHtml(link.url)}</p>
+            </div>
+            
+            <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <button type="button" class="youth-external-preview-btn px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-xl text-[10px] font-semibold transition">Pratinjau</button>
+                <button type="button" class="youth-external-download-btn px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-semibold transition">Unduh</button>
+                <button type="button" class="youth-external-remove-btn px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-semibold transition">Hapus</button>
+            </div>
+        `;
+        
+        item.querySelector('.youth-external-preview-btn').addEventListener('click', () => previewExternalLink(link));
+        item.querySelector('.youth-external-download-btn').addEventListener('click', () => downloadExternalLink(link));
+        item.querySelector('.youth-external-remove-btn').addEventListener('click', () => removeExternalYouthDocLink(link.url));
+        
+        list.appendChild(item);
+    });
+    
+    lucide.createIcons();
+}
+
+function handleAddExternalYouthDocLink() {
+    const input = document.getElementById('youth-external-doc-link-input');
+    if (!input) return;
+    
+    const url = normalizeExternalLink(input.value);
+    if (!url) {
+        toast('Silakan masukkan link yang valid.', 'error');
+        return;
+    }
+    
+    const existing = externalYouthDocLinks.some(link => link.url === url);
+    if (existing) {
+        toast('Link sudah terdaftar.', 'error');
+        return;
+    }
+    
+    externalYouthDocLinks.push({
+        url,
+        title: url,
+        source: getLinkSource(url),
+        createdAt: new Date().toISOString()
+    });
+    
+    saveExternalYouthDocLinks();
+    renderExternalYouthDocs();
+    input.value = '';
+    toast('Link dokumen eksternal berhasil ditambahkan.', 'success');
+}
+
+function removeExternalYouthDocLink(url) {
+    const idx = externalYouthDocLinks.findIndex(l => l.url === url);
+    if (idx === -1) {
+        toast('Link eksternal tidak ditemukan.', 'error');
+        return;
+    }
+    externalYouthDocLinks.splice(idx, 1);
+    saveExternalYouthDocLinks();
+    renderExternalYouthDocs();
+    toast('Link eksternal berhasil dihapus.', 'success');
+}
+// ==========================================
+
+
+function initializeDocCategoryFilter() {
+    // Set default filter to "semua" dan highlight button
+    filterDocsByCategory('semua');
+}
+
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getCategoryDisplay(category) {
+    if (!category) return 'Dokumen';
+    const displayMap = {
+        'dokumen': 'Dokumen',
+        'warta_gereja': 'Warta Gereja',
+        'surat_menyurat': 'Surat Menyurat'
+    };
+    
+    // Jika kategori adalah preset, tampilkan display name
+    if (displayMap[category]) return displayMap[category];
+    
+    // Jika custom category, coba match dengan yang disimpan di docCustomCategories
+    const normalized = (str) => str.toLowerCase().replace(/\s+/g, '_');
+    for (let customCat of docCustomCategories) {
+        if (normalized(customCat) === category) {
+            return customCat;
+        }
+    }
+    
+    // Fallback: format dengan capitalize
+    return category.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 
@@ -967,13 +1615,65 @@ async function triggerRemoveDocFile(docId) {
     if (confirmed) {
         try {
             await driveApi('delete', { fileId: docId });
-            fetchDocsList();
-            loadDashboardStats();
+            invalidateDriveFileCache();
+            await Promise.all([fetchDocsList(), loadDashboardStats()]);
             toast('Dokumen berhasil dihapus dari Google Drive.', 'success');
         } catch (err) {
             console.error(err);
             toast(err.message || 'Gagal menghapus dokumen.', 'error');
         }
+    }
+}
+
+
+async function triggerChangeDocCategory(docId, docName) {
+    // Simpan dokumen yang akan diubah kategorinya
+    window.pendingCategoryChangeDocId = docId;
+    window.pendingCategoryChangeDocName = docName;
+    window.isCategoryChangeMode = true;
+    
+    // Bersihkan pilihan kategori sebelumnya
+    selectedDocCategory = null;
+    
+    // Load dan tampilkan modal kategori
+    loadCategoryModal();
+    
+    // Ubah tombol action
+    const actionBtn = document.getElementById('doc-category-action-btn');
+    if (actionBtn) {
+        actionBtn.textContent = 'Ubah Kategori';
+        actionBtn.onclick = proceedChangeDocCategory;
+    }
+}
+
+
+async function proceedChangeDocCategory() {
+    if (!selectedDocCategory) {
+        toast('Silakan pilih kategori terlebih dahulu.', 'error');
+        return;
+    }
+    
+    const docId = window.pendingCategoryChangeDocId;
+    const docName = window.pendingCategoryChangeDocName;
+    
+    if (!docId) {
+        closeCategoryModal();
+        return;
+    }
+    
+    try {
+        const normalizedCategory = selectedDocCategory.toLowerCase().replace(/\s+/g, '_');
+        await driveApi('updateCategory', {
+            fileId: docId,
+            category: normalizedCategory
+        });
+        invalidateDriveFileCache();
+        await fetchDocsList();
+        closeCategoryModal();
+        toast(`Kategori dokumen "${docName}" berhasil diubah menjadi "${selectedDocCategory}".`, 'success');
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Gagal mengubah kategori dokumen.', 'error');
     }
 }
 
@@ -1068,8 +1768,8 @@ async function triggerRemovePhotoImage(photoId) {
     if (confirmed) {
         try {
             await driveApi('delete', { fileId: photoId });
-            fetchPhotosList();
-            loadDashboardStats();
+            invalidateDriveFileCache();
+            await Promise.all([fetchPhotosList(), loadDashboardStats()]);
             toast('Foto berhasil dihapus dari Google Drive.', 'success');
         } catch (err) {
             console.error(err);
