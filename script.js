@@ -628,7 +628,7 @@ function renderExcelDataGrid() {
         tr.appendChild(numTd);
         headers.forEach((h) => {
             const td = document.createElement('td');
-            td.className = "py-3.5 px-4 font-medium text-slate-700 font-sans break-all max-w-[200px]";
+            td.className = "py-3.5 px-4 font-medium text-slate-700 font-sans";
             td.innerText = row[h] !== undefined ? row[h] : "";
             tr.appendChild(td);
         });
