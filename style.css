@@ -91,3 +91,47 @@ body {
 #mobile-menu-drawer::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 6px; }
 
 html, body { -webkit-overflow-scrolling: touch; }
+
+#excel-active-workspace {
+    width: 100%;
+}
+
+#excel-active-workspace .overflow-x-auto {
+    overflow-x: auto;
+}
+
+#excel-active-workspace table {
+    min-width: 1300px;
+    table-layout: auto;
+}
+
+#excel-table-head th,
+#excel-table-body td {
+    white-space: nowrap;
+    word-break: normal;
+    vertical-align: top;
+}
+
+#excel-table-body td {
+    max-width: none !important;
+}
+
+#excel-table-head th:nth-child(4),
+#excel-table-body td:nth-child(4),
+#excel-table-head th:nth-child(6),
+#excel-table-body td:nth-child(6) {
+    min-width: 220px;
+    white-space: normal;
+}
+
+#excel-table-head th:nth-child(3),
+#excel-table-body td:nth-child(3) {
+    min-width: 180px;
+    white-space: normal;
+}
+
+#excel-table-head th:last-child,
+#excel-table-body td:last-child {
+    min-width: 110px;
+    white-space: nowrap;
+}
