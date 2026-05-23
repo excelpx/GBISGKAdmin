@@ -439,13 +439,13 @@
                                         <span>Upload File Baru</span>
                                     </button>
                                     <input
-                                        type="file"
-                                        id="doc-hidden-file-input"
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.xlsx,.xls,.txt"
-                                        onchange="handleDocLocalUpload(event)"
-                                        class="hidden"
+                                            type="file"
+                                            id="excel-file-hidden-input"
+                                            accept=".xlsx,.xls"
+                                            onchange="handleLocalExcelUpload(event)"
+                                            class="hidden"
                                     />
-                                    <p class="text-[9px] text-slate-400 text-center">Format file yang didukung: .xlsx atau .xls sahaja.</p>
+                                    <p class="text-[9px] text-slate-400 text-center">Format file yang didukung: .xlsx atau .xls saja.</p>
                                 </div>
                             </div>
                         </div>
@@ -972,3 +972,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
