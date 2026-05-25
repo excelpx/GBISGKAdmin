@@ -1,4 +1,4 @@
-﻿const DB_NAME = 'GerejaDataHubDB_v1';
+const DB_NAME = 'GerejaDataHubDB_v1';
 const STORE_NAME = 'files';
 
 let activeTab = 'dashboard';
