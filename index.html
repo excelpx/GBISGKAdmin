@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GBI SHEKINAH GLORY KOPENG</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@355;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="h-full flex flex-col antialiased text-slate-900 selection:bg-blue-150">
+
+    <div id="auth-gate" class="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8">
+        <div class="max-w-md w-full bg-white rounded-3xl border border-slate-200/80 p-6 md:p-8 flex flex-col items-center text-center shadow-lg space-y-6">
+
+            <div class="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/15">
+                <i data-lucide="church" class="w-8 h-8"></i>
+            </div>
+
+            <div class="space-y-2">
+                <h1 class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+                    Database Jemaat & Foto
+                </h1>
+                <p class="text-[10px] font-bold tracking-widest text-blue-600 font-mono uppercase bg-blue-50 px-2.5 py-1 rounded-full inline-block border border-blue-100">
+                    SISTEM INTERNAL GEREJA
+                </p>
+            </div>
+
+            <p class="text-xs text-slate-500 leading-relaxed max-w-sm">
+                Web khusus kepengurusan kantor gereja untuk mengelola file jemaat dari Excel serta mengorganisir galeri pendokumentasian secara aman langsung di database lokal komputer Anda.
+            </p>
+
+            <form id="login-form" class="w-full text-left space-y-4">
+                
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        Username
+                    </label>
+                    <input
+                        type="text"
+                        id="login-username"
+                        placeholder="Masukkan username"
+                        required
+                        class="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl outline-none transition focus:bg-white text-slate-800 font-medium"
+                    />
+                </div>
+
+                
+                <div class="space-y-1.5">
+                    <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        Password
+                    </label>
+                    <input
+                        type="password"
+                        id="login-password"
+                        placeholder="Masukkan password"
+                        required
+                        class="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl outline-none transition focus:bg-white text-slate-800 font-medium"
+                    />
+                </div>
+
+                
+                <div id="login-error-container" class="hidden p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2 text-[11px] text-red-600 font-medium">
+                    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0 text-red-500"></i>
+                    <span id="login-error-text">Username atau password salah.</span>
+                </div>
+
+                
+                <button
+                    type="submit"
+                    id="submit-login-btn"
+                    class="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm transition hover:shadow-md cursor-pointer flex items-center justify-center gap-2"
+                >
+                    <span>Masuk Sekarang</span>
+                </button>
+            </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div id="app-workspace" class="hidden min-h-screen bg-slate-50 flex flex-col font-sans pt-16 md:pt-0">
+        
+        
+        <header class="fixed md:sticky top-0 left-0 w-full h-16 bg-white border-b border-slate-200 z-30 shadow-xs flex-shrink-0">
+            <div class="max-w-7xl mx-auto px-6 md:px-8 h-full flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    
+                    <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden shadow-sm">
+                        <img src="Image/gbi.png" alt="Logo Gereja" class="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                        <h1 class="text-sm font-bold leading-tight text-slate-950">GBI SHEKINAH GLORY KOPENG</h1>
+                        <p class="text-[10px] font-medium text-slate-500">Sistem Manajemen Internal</p>
+                    </div>
+                </div>
+
+                
+                <nav class="hidden md:flex bg-slate-100 p-1 rounded-xl border border-slate-200/70 shadow-xs">
+                    <button
+                        onclick="switchTab('dashboard')"
+                        id="tab-btn-dashboard"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer bg-white text-blue-600 shadow-xs"
+                    >
+                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-blue-600"></i>
+                        <span>Ringkasan</span>
+                    </button>
+                    <button
+                        onclick="switchTab('excel')"
+                        id="tab-btn-excel"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer text-slate-600 hover:bg-slate-50"
+                    >
+                        <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-slate-400"></i>
+                        <span>Data Jemaat (Excel)</span>
+                    </button>
+                    <button
+                        onclick="switchTab('photo')"
+                        id="tab-btn-photo"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer text-slate-600 hover:bg-slate-50"
+                    >
+                        <i data-lucide="image" class="w-3.5 h-3.5 text-slate-400"></i>
+                        <span>Dokumen Gereja</span>
+                    </button>
+                    <button
+                        onclick="switchTab('youth')"
+                        id="tab-btn-youth"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer text-slate-600 hover:bg-slate-50"
+                    >
+                        <i data-lucide="users" class="w-3.5 h-3.5 text-slate-400"></i>
+                        <span>Youth Dokumen</span>
+                    </button>
+                </nav>
+
+                
+                <div class="flex items-center gap-3">
+                    
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-600 font-bold text-xs" id="user-avatar-initial">
+                            A
+                        </div>
+                        <div class="hidden sm:block text-right">
+                            <p class="text-xs font-bold text-slate-900" id="user-profile-name">Admin</p>
+                            <p class="text-[9px] font-medium text-slate-400" id="user-profile-email">@Excelpeter17_</p>
+                        </div>
+                    </div>
+
+                    <div class="w-px h-6 bg-slate-200"></div>
+
+                    
+                    <button
+                        onclick="triggerLogout()"
+                        class="w-9 h-9 border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 rounded-xl flex items-center justify-center transition cursor-pointer hover:bg-slate-50"
+                        title="Keluar dari Sistem"
+                    >
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+
+                    
+                    <button
+                        onclick="toggleMobileMenu()"
+                        class="md:hidden w-9 h-9 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-center text-slate-700 cursor-pointer"
+                        aria-controls="mobile-menu-drawer"
+                        aria-expanded="false"
+                    >
+                        <i data-lucide="menu" id="mobile-menu-icon" class="w-4.5 h-4.5"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        
+        <div id="mobile-menu-drawer" class="hidden md:hidden fixed top-16 left-0 right-0 z-40 bg-white border-b border-slate-200 p-4 space-y-2 max-h-[calc(100vh-4rem)] overflow-y-auto shadow-lg" role="dialog" aria-modal="true">
+            <button
+                onclick="switchTab('dashboard'); toggleMobileMenu(false);"
+                class="mobile-tab-btn text-left w-full px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all bg-blue-600 text-white shadow-xs"
+                id="mobile-tab-btn-dashboard"
+            >
+                <i data-lucide="layout-dashboard" class="w-4 h-4 text-white"></i>
+                <span>Ringkasan</span>
+            </button>
+            <button
+                onclick="switchTab('excel'); toggleMobileMenu(false);"
+                class="mobile-tab-btn text-left w-full px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all text-slate-600 hover:bg-slate-50"
+                id="mobile-tab-btn-excel"
+            >
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-slate-400"></i>
+                <span>Data Jemaat (Excel)</span>
+            </button>
+            <button
+                onclick="switchTab('photo'); toggleMobileMenu(false);"
+                class="mobile-tab-btn text-left w-full px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all text-slate-600 hover:bg-slate-50"
+                id="mobile-tab-btn-photo"
+            >
+                <i data-lucide="image" class="w-4 h-4 text-slate-400"></i>
+                <span>Galeri Foto Gereja</span>
+            </button>
+            <button
+                onclick="switchTab('youth'); toggleMobileMenu(false);"
+                class="mobile-tab-btn text-left w-full px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all text-slate-600 hover:bg-slate-50"
+                id="mobile-tab-btn-youth"
+            >
+                <i data-lucide="users" class="w-4 h-4 text-slate-400"></i>
+                <span>Youth Dokumen</span>
+            </button>
+        </div>
+
+        
+        <main class="flex-grow max-w-7xl w-full mx-auto px-6 md:px-8 py-8">
+            <div id="feedback-alert" class="hidden fixed bottom-6 right-6 z-50 max-w-sm w-full bg-slate-900 text-white border border-slate-800 rounded-2xl p-4 shadow-2xl flex items-start gap-3 transition duration-300">
+                <i data-lucide="check-circle" id="feedback-icon" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>
+                <span id="feedback-text" class="text-xs font-medium text-slate-100">Feedback text di sini</span>
+            </div>
+            <div id="global-loading-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm px-4">
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl px-5 py-4 flex items-center gap-3 max-w-sm w-full">
+                    <i data-lucide="refresh-cw" class="w-5 h-5 text-blue-600 animate-spin"></i>
+                    <div class="flex-1 min-w-0">
+                        <p id="global-loading-message" class="text-sm font-semibold text-slate-900">Memuat...</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Tunggu sebentar, aplikasi sedang memproses.</p>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div id="viewports" class="space-y-6">
+                
+                
+                <div id="view-dashboard" class="space-y-6">
+                    
+                    <div class="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div class="space-y-1.5 z-10">
+                            <div class="flex items-center gap-1.5 text-[10px]/normal text-blue-400 font-bold uppercase tracking-widest font-mono">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5 animate-pulse text-blue-400"></i> INTERNAL MANAGEMENT ONLY
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white font-display">
+                                Syalom, Admin!
+                            </h1>
+                            <p class="text-xs text-slate-300">
+                                Aplikasi pengelola database ini hanya milik pribadi <span class="text-white underline" id="banner-email">admin@gereja-datahub.id</span>.
+                            </p>
+                        </div>
+
+                        
+                        <div class="flex items-center gap-2 px-3 py-2 bg-slate-800/80 rounded-xl text-slate-200 border border-slate-700/50 text-xs font-medium z-10 self-stretch sm:self-auto justify-center">
+                            <i data-lucide="calendar" class="w-4 h-4 text-blue-400"></i>
+                            <span id="banner-date">-</span>
+                        </div>
+
+                        
+                        <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                        <div class="absolute left-1/3 -top-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                    </div>
+
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        
+                        <div class="bg-white border border-slate-200/80 rounded-2xl p-5 flex items-center justify-between shadow-xs hover:translate-y-[-2px] transition-all">
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Jemaat</span>
+                                <h2 class="text-3xl font-extrabold text-slate-900 font-mono tracking-tight" id="metric-total-rows">0</h2>
+                                <p class="text-[10px] text-slate-400">Terdaftar dalam Excel aktif</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                                <i data-lucide="users" class="w-5 h-5 text-blue-500"></i>
+                            </div>
+                        </div>
+
+                        
+                        <div class="bg-white border border-slate-200/80 rounded-2xl p-5 flex items-center justify-between shadow-xs hover:translate-y-[-2px] transition-all">
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Database Excel</span>
+                                <h2 class="text-3xl font-extrabold text-slate-900 font-mono tracking-tight" id="metric-files-count">0</h2>
+                                <p class="text-[10px] text-slate-400">File tersimpan di sistem lokal</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                                <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-600"></i>
+                            </div>
+                        </div>
+
+                        
+                        <div class="bg-white border border-slate-200/80 rounded-2xl p-5 flex items-center justify-between shadow-xs hover:translate-y-[-2px] transition-all">
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Arsip Foto</span>
+                                <h2 class="text-3xl font-extrabold text-slate-900 font-mono tracking-tight" id="metric-photos-count">0</h2>
+                                <p class="text-[10px] text-slate-400">Dokumentasi & visual kegiatan</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                                <i data-lucide="image" class="w-5 h-5 text-blue-500"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                    <i data-lucide="folder-lock" class="w-4 h-4 text-blue-600"></i>
+                                    Penyimpanan Google Drive Terhubung
+                                </h3>
+                                <p class="text-xs text-slate-500 leading-relaxed">
+                                    Sistem database jemaat gereja dikonfigurasikan aman untuk membaca, menyimpan, dan menyelaraskan berkas langsung dari folder Google Drive Anda.
+                                </p>
+                            </div>
+
+                            <div class="space-y-2.5 bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1.5">
+                                <div class="text-xs text-slate-700 flex flex-col gap-1">
+                                    <span class="font-semibold text-slate-500 text-[10px] uppercase font-mono tracking-wider block">Folder Sumber Google Drive:</span>
+                                    <a 
+                                        href="https://drive.google.com/drive/folders/1B1Sk6QJraYeWYDycrualpTlSr30IaNTB?usp=sharing" 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        class="text-blue-600 hover:text-blue-800 hover:underline font-mono text-[11px] font-bold break-all flex items-center gap-1 bg-blue-50/50 p-2 rounded-lg border border-blue-100"
+                                    >
+                                        <span class="truncate">folders/1B1Sk6QJraYe...</span>
+                                        <span class="px-1.5 py-0.5 rounded-md bg-blue-100 text-[9px] font-bold text-blue-700 ml-auto flex-shrink-0 uppercase">Buka</span>
+                                    </a>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-slate-700 mt-1">
+                                    <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0"></i>
+                                    <span>Status: <span class="text-emerald-700 font-bold">Terhubung Aktif (IndexedDB Sync)</span></span>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-2">
+                                <a 
+                                    href="https://drive.google.com/drive/folders/1B1Sk6QJraYeWYDycrualpTlSr30IaNTB?usp=sharing" 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    class="w-full text-center py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition hover:shadow-md cursor-pointer inline-flex items-center justify-center gap-1.5"
+                                >
+                                    <span>Periksa Folder Live Google Drive</span>
+                                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                                </a>
+                                <div class="flex items-center gap-1.5 text-[10px] text-amber-600 font-medium justify-center">
+                                    <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+                                    <span>Data privat tersinkronisasi murni di sistem lokal Anda.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4 flex flex-col justify-between">
+                            <div class="space-y-1">
+                                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                    <i data-lucide="layers" class="w-4 h-4 text-slate-600"></i>
+                                    Navigasi Cepat Kepengurusan
+                                </h3>
+                                <p class="text-xs text-slate-500">
+                                    Buka modul kelola segera tanpa hambatan dengan mengklik tombol pintas di bawah.
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button
+                                    onclick="switchTab('excel')"
+                                    class="p-4 rounded-xl border border-slate-200/80 hover:border-slate-400 bg-white text-left group transition cursor-pointer flex flex-col justify-between h-28 hover:shadow-sm"
+                                >
+                                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-600"></i>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                            Update Excel Jemaat 
+                                            <i data-lucide="arrow-right" class="w-3 h-3 text-slate-400 group-hover:translate-x-1 transition-all"></i>
+                                        </h4>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Edit & simpan basis jemaat</p>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onclick="switchTab('photo')"
+                                    class="p-4 rounded-xl border border-slate-200/80 hover:border-slate-400 bg-white text-left group transition cursor-pointer flex flex-col justify-between h-28 hover:shadow-sm"
+                                >
+                                    <i data-lucide="image" class="w-5 h-5 text-blue-600"></i>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                            Kelola Dokumen & Foto 
+                                            <i data-lucide="arrow-right" class="w-3 h-3 text-slate-400 group-hover:translate-x-1 transition-all"></i>
+                                        </h4>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Dokumentasi & kegiatan</p>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <p class="text-[10px] text-slate-400 text-center leading-normal italic">
+                                "Melayani dengan ketulusan Hati."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div id="view-excel" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        
+                        
+                        <div class="lg:col-span-1 space-y-4">
+                            <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4 shadow-xs">
+                                <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="folder-open" class="w-4 h-4 text-blue-600"></i>
+                                    Daftar File Excel
+                                </h3>
+
+                                <div class="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200/50">
+                                    <p class="text-[10px]/snug text-slate-500 font-medium leading-relaxed">
+                                        Pilih database Excel aktif jemaat untuk melakukan kustomisasi secara langsung.
+                                    </p>
+                                </div>
+
+                                
+                                <div id="excel-list-loading" class="hidden py-6 text-center space-y-2">
+                                    <i data-lucide="refresh-cw" class="w-5 h-5 text-blue-600 animate-spin mx-auto"></i>
+                                    <p class="text-[10px] text-slate-400 font-medium">Memuat berkas...</p>
+                                </div>
+
+                                
+                                <div id="excel-files-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                    
+                                </div>
+
+                                <div class="border-t border-slate-100 my-2"></div>
+
+                                
+                                <div class="space-y-2">
+                                    <button
+                                        onclick="triggerExcelInput()"
+                                        class="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                    >
+                                        <i data-lucide="upload" class="w-4 h-4 text-slate-500"></i>
+                                        <span>Upload File Baru</span>
+                                    </button>
+                                    <input
+                                            type="file"
+                                            id="excel-file-hidden-input"
+                                            accept=".xlsx,.xls"
+                                            onchange="handleLocalExcelUpload(event)"
+                                            class="hidden"
+                                    />
+                                    <p class="text-[9px] text-slate-400 text-center">Format file yang didukung: .xlsx atau .xls saja.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                        <div class="lg:col-span-3 space-y-6">
+                            
+                            <div id="excel-no-file-selected" class="bg-white rounded-3xl border border-slate-200/80 p-12 text-center shadow-xs flex flex-col items-center justify-center space-y-4">
+                                <div class="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                    <i data-lucide="file-spreadsheet" class="w-8 h-8"></i>
+                                </div>
+                                <div class="space-y-1">
+                                    <h3 class="text-sm font-bold text-slate-800">Tidak ada File Excel Aktif</h3>
+                                    <p class="text-xs text-slate-400 max-w-sm mx-auto">Silakan pilih file dari panel kiri guna mengedit, menganalisis, menambahkan catatan jemaat di browser secara langsung.</p>
+                                </div>
+                            </div>
+
+                            
+                            <div id="excel-active-workspace" class="hidden bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+                                
+                                <div class="p-4 bg-slate-50/55 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                                    <div>
+                                        <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                                            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-blue-600"></i>
+                                            <span>DATABASE AKTIF</span>
+                                        </div>
+                                        <h2 class="text-base font-bold text-slate-800 tracking-tight" id="active-excel-filename">-</h2>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        
+                                        <button
+                                            id="download-excel-backup-btn"
+                                            onclick="downloadActiveExcelBackup()"
+                                            class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition cursor-pointer"
+                                            title="Simpan file cadangan ke lokal komputer Anda"
+                                        >
+                                            <i data-lucide="download" class="w-3.5 h-3.5 text-slate-500"></i>
+                                            <span>Backup Lokal</span>
+                                        </button>
+                                        
+                                        <button
+                                            onclick="saveActiveChangesToIndexedDB()"
+                                            id="save-excel-changes-btn"
+                                            class="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs shadow-blue-600/10 transition cursor-pointer"
+                                        >
+                                            <i data-lucide="save" class="w-3.5 h-3.5 text-white"></i>
+                                            <span>Simpan Terkini</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                
+                                <div class="px-4 py-2 bg-slate-50/40 border-b border-slate-100 flex items-center justify-between gap-4">
+                                    <div class="flex items-center gap-1 overflow-x-auto" id="excel-sheets-tabs">
+                                        
+                                    </div>
+                                    
+                                    <button
+                                        onclick="triggerDeleteSelectedExcel()"
+                                        class="p-1 px-2.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 flex-shrink-0"
+                                    >
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5 text-red-500"></i>
+                                        <span class="hidden sm:inline">Hapus File</span>
+                                    </button>
+                                </div>
+
+                                
+                                <div class="p-4 bg-white border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <div class="relative w-full sm:max-w-xs">
+                                        <i data-lucide="search" class="absolute left-3.5 top-2.5 w-4 h-4 text-slate-450"></i>
+                                        <input
+                                            type="text"
+                                            id="excel-grid-search"
+                                            placeholder="Cari nama, id, wilayah jemaat..."
+                                            oninput="filterExcelTableGrid(this.value)"
+                                            class="w-full pl-9 pr-4 py-2 bg-slate-50/70 text-xs border border-slate-200/80 rounded-xl outline-none focus:bg-white focus:border-slate-350 text-slate-800"
+                                        />
+                                    </div>
+
+                                    <div class="relative w-full sm:max-w-[180px]">
+                                        <select
+                                            id="excel-grid-month-filter"
+                                            onchange="filterExcelByMonth(this.value)"
+                                            class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200/80 rounded-xl outline-none focus:bg-white focus:border-slate-350 text-slate-800"
+                                        >
+                                            <option value="">Semua Bulan</option>
+                                            <option value="0">Januari</option>
+                                            <option value="1">Februari</option>
+                                            <option value="2">Maret</option>
+                                            <option value="3">April</option>
+                                            <option value="4">Mei</option>
+                                            <option value="5">Juni</option>
+                                            <option value="6">Juli</option>
+                                            <option value="7">Agustus</option>
+                                            <option value="8">September</option>
+                                            <option value="9">Oktober</option>
+                                            <option value="10">November</option>
+                                            <option value="11">Desember</option>
+                                        </select>
+                                    </div>
+
+                                    
+                                    <button
+                                        onclick="openAddRecordModal()"
+                                        class="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 hover:bg-slate-800 transition cursor-pointer"
+                                    >
+                                        <i data-lucide="plus" class="w-4 h-4 text-white"></i>
+                                        <span>Tambah Baris Baru</span>
+                                    </button>
+                                </div>
+
+                                <div class="overflow-x-auto max-h-[460px] overflow-y-auto">
+                                    <table class="w-full border-collapse text-left text-xs text-slate-700">
+                                        <thead class="bg-slate-50/65 font-bold uppercase tracking-wider font-mono text-[9px] text-slate-500 sticky top-0 border-b border-slate-100 z-10" id="excel-table-head">
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 bg-white" id="excel-table-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="p-4 border-t border-slate-100 bg-slate-55 flex flex-col gap-3 text-[10px] text-slate-450 font-mono sm:flex-row sm:items-center sm:justify-between">
+                                    <span id="excel-grid-rows-indicator">Total baris: 0</span>
+                                    <div id="excel-pagination-controls" class="flex flex-col gap-2 sm:flex-row sm:items-center"></div>
+                                    <span>Klik Ganda / Tap tombol aksi untuk mengedit baris jemaat.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div id="view-photo" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div class="lg:col-span-1 space-y-4">
+                            <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4">
+                                <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="upload" class="w-4 h-4 text-blue-600"></i>
+                                    Upload Foto Baru
+                                </h3>
+
+                                <div class="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200/60 text-[10px]/relaxed text-slate-500 font-medium">
+                                    Pilih atau seret gambar dokumentasi kegiatan gereja ke area di bawah untuk menyimpannya ke database internal.
+                                </div>
+
+                                
+                                <div
+                                    id="photo-dropzone"
+                                    onclick="triggerPhotoSecretInput()"
+                                    class="border-2 border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50/20 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2"
+                                >
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center" id="photo-uploader-status-icon">
+                                        <i data-lucide="plus" class="w-5 h-5 text-blue-500"></i>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <p class="text-[11px] font-bold text-slate-700">Pilih berkas foto</p>
+                                        <p class="text-[9px] text-slate-400">Atau seret gambar kesini</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-3">
+                                    <button
+                                        onclick="triggerDocUploadInput()"
+                                        class="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                    >
+                                        <i data-lucide="file-text" class="w-4 h-4 text-slate-500"></i>
+                                        <span>Upload Dokumen</span>
+                                    </button>
+                                    <input
+                                        type="file"
+                                        id="youth-doc-hidden-file-input"
+                                        accept="*/*"
+                                        multiple
+                                        onchange="handleDocLocalUpload(event)"
+                                        class="hidden"
+                                    />
+                                    <input
+                                        type="file"
+                                        id="doc-hidden-file-input"
+                                        accept="*/*"
+                                        multiple
+                                        onchange="handleDocLocalUpload(event)"
+                                        class="hidden"
+                                    />
+                                    <input
+                                        type="file"
+                                        id="photo-hidden-file-input"
+                                        accept="image/png,image/jpeg,image/jpg,image/gif"
+                                        onchange="handlePhotoLocalUpload(event)"
+                                        class="hidden"
+                                    />
+                                </div>
+                                <p class="text-[9px] text-slate-400 text-center uppercase tracking-wider font-mono">PNG, JPG, JPEG, GIF, PDF, DOC, DOCX, PPT, PPTX</p>
+                            </div>
+                        </div>
+
+                        
+                        <div class="lg:col-span-3 space-y-4">
+                            <div class="flex items-center justify-between gap-3 px-2 sm:px-0">
+                                <div>
+                                    <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                        <i data-lucide="image" class="w-4 h-4 text-blue-600"></i>
+                                        Galeri Foto Gereja
+                                    </h3>
+                                    <p class="text-[10px] text-slate-500 mt-1">Koleksi foto dokumentasi kegiatan gereja.</p>
+                                </div>
+                            </div>
+                            
+                            <div id="gallery-empty-alert" class="hidden bg-white rounded-3xl border border-slate-200/80 p-12 text-center shadow-xs flex flex-col items-center justify-center space-y-4">
+                                <div class="w-15 h-15 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                                    <i data-lucide="image" class="w-8 h-8"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-xs font-bold text-slate-800">Album Foto Kosong, Belum Ada Pendokumentasian</h3>
+                                    <p class="text-[10px]/relaxed text-slate-400 max-w-sm mt-1">Gunakan panel uploader di sebelah kiri untuk mengunggah arsip foto dokumentasi ibadah wilayah dengan segera.</p>
+                                </div>
+                            </div>
+
+                            
+                            <div id="gallery-items-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                
+                            </div>
+                            <div id="docs-files-panel" class="bg-white rounded-3xl border border-slate-200/80 p-5 mt-6">
+                                <div class="flex items-center justify-between gap-3 mb-4">
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                            <i data-lucide="file-text" class="w-4 h-4 text-blue-600"></i>
+                                            Dokumen Pendukung
+                                        </h3>
+                                        <p class="text-[10px] text-slate-500 mt-1">Upload PDF, DOCX, PPT untuk arsip administrasi pendukung gereja.</p>
+                                    </div>
+                                </div>
+                                
+                                <div id="docs-category-filter" class="mb-4 pb-4 border-b border-slate-200">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-[10px] font-semibold text-slate-600">Filter:</span>
+                                        <button onclick="filterDocsByCategory('semua')" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-blue-50 hover:border-blue-200 transition" data-category="semua">Semua Dokumen</button>
+                                        <button onclick="filterDocsByCategory('dokumen')" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-blue-50 hover:border-blue-200 transition" data-category="dokumen">Dokumen</button>
+                                        <button onclick="filterDocsByCategory('warta_gereja')" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-blue-50 hover:border-blue-200 transition" data-category="warta_gereja">Warta Gereja</button>
+                                        <button onclick="filterDocsByCategory('surat_menyurat')" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-blue-50 hover:border-blue-200 transition" data-category="surat_menyurat">Surat Menyurat</button>
+                                        <div id="docs-custom-category-filters" class="flex items-center gap-2 flex-wrap"></div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <label for="docs-search-input" class="text-[10px] font-semibold text-slate-600 mb-1 inline-block">Cari dokumen</label>
+                                        <input id="docs-search-input" oninput="setDocSearchQuery(this.value)" type="text" placeholder="Cari nama dokumen untuk hapus..." class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-[10px] text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white" />
+                                    </div>
+                                    <div class="mt-4">
+                                        <label for="external-doc-link-input" class="text-[10px] font-semibold text-slate-600 mb-1 inline-block">Paste Link SpeedSheet / Google Drive</label>
+                                        <div class="flex gap-2">
+                                            <input id="external-doc-link-input" type="text" placeholder="https://..." class="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-[10px] text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white" />
+                                            <button type="button" onclick="handleAddExternalDocLink()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold transition">Tambah Link</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="docs-files-list" class="space-y-3">
+                                    <div class="text-[10px] text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-2xl">
+                                        Belum ada dokumen pendukung.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div id="view-youth" class="hidden space-y-6">
+                    <div class="bg-white rounded-3xl border border-slate-200/80 p-6 md:p-8">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-[11px] font-mono text-blue-600 font-bold uppercase">KOMISI PEMUDA / YOUTH SECTION</p>
+                                <h2 class="text-2xl font-bold text-slate-900 mt-2">File Foto & Dokumen Youth</h2>
+                                <p class="text-[10px] text-slate-500 mt-1 max-w-2xl">Arsip digital untuk proposal agenda, pembukuan keuangan kegiatan, kalender ibadah remaja, serta berkas notulensi rapat pemuda gereja secara terstruktur.</p>
+                            </div>
+                            <div class="text-[12px] text-slate-500 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl">Dokumen disimpan terindeksasi dan terhubung murni di folder drive lokal khusus Anda.</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div class="lg:col-span-1 space-y-4">
+                            <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4">
+                                <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="upload" class="w-4 h-4 text-blue-600"></i>
+                                    Unggah Dokumen Youth
+                                </h3>
+                                <div class="space-y-1 text-[10px] text-slate-500">
+                                    <p class="font-medium">Kategori Berkas</p>
+                                    <select id="youth-upload-category" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm">
+                                        <option value="dokumen">Dokumen Umum</option>
+                                        <option value="image">Image</option>
+                                        <option value="surat_menyurat">Surat Menyurat</option>
+                                    </select>
+                                </div>
+                                <div id="youth-dropzone" onclick="triggerDocUploadInput()" class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                                        <i data-lucide="plus" class="w-5 h-5 text-blue-500"></i>
+                                    </div>
+                                    <p class="text-sm font-semibold text-slate-700">Pilih File Dokumen</p>
+                                    <p class="text-[10px] text-slate-400">Atau seret berkas ke sini</p>
+                                </div>
+                                <div>
+                                    <button onclick="triggerDocUploadInput()" class="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold">Pilih File Dokumen</button>
+                                </div>
+                                <p class="text-[9px] text-slate-400 text-center uppercase tracking-wider font-mono">Mendukung: PDF, DOCX, XLSX, TXT, DLL</p>
+                            </div>
+
+                            <div class="bg-slate-900 text-white rounded-2xl p-4">
+                                <h4 class="text-[11px] font-bold">STAF LAYANAN YOUTH</h4>
+                                <p class="text-[10px] text-slate-200 mt-2">Semua Dokumen Milik Allah</p>
+                                <div class="mt-3 text-[10px] flex items-center justify-between">
+                                    <span>Sekretaris Youth:</span>
+                                    <strong>-</strong>
+                                </div>
+                                <div class="mt-1 text-[10px] flex items-center justify-between">
+                                    <span>Kontak WA:</span>
+                                    <strong>-</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-3 space-y-4">
+                            <div class="bg-white rounded-2xl border border-slate-200/80 p-5">
+                                <div class="flex flex-col gap-3">
+                                    <div class="flex items-center gap-4">
+                                        <input id="youth-search-input" oninput="setDocSearchQuery(this.value)" type="text" placeholder="Cari berkas dokumen youth..." class="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none" />
+                                        <div class="flex gap-2">
+                                            <button onclick="filterDocsByCategory('semua')" data-category="semua" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-blue-600 text-white">Semua Dokumen</button>
+                                            <button onclick="filterDocsByCategory('dokumen')" data-category="dokumen" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600">Dokumen</button>
+                                            <button onclick="filterDocsByCategory('image')" data-category="image" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600">Image</button>
+                                            <button onclick="filterDocsByCategory('surat_menyurat')" data-category="surat_menyurat" class="doc-filter-btn text-[10px] font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600">Surat Menyurat</button>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label for="youth-external-doc-link-input" class="text-[10px] font-semibold text-slate-600 mb-1 inline-block">Paste Link SpeedSheet / Google Drive</label>
+                                        <div class="flex gap-2">
+                                            <input id="youth-external-doc-link-input" type="text" placeholder="https://..." class="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-[10px] text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white" />
+                                            <button type="button" onclick="handleAddExternalYouthDocLink()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold transition">Tambah Link</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="youth-external-docs-list" class="space-y-3 mt-4"></div>
+                                <div id="youth-docs-files-list" class="mt-6">
+                                    <div class="text-[10px] text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-2xl">Belum ada Dokumen.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        
+        <footer class="bg-white border-t border-slate-200 py-4 px-6 md:px-8 flex-shrink-0">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] text-slate-400 font-medium">
+                <span>&copy; <span id="footer-year">2026</span> GBI SHEKINAH GLORY KOPENG</span>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span>Sistem Database Lokal Terenkripsi (Sandboxed)</span>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    
+    
+    <div id="row-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div class="bg-white rounded-3xl border border-slate-200/80 w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+            <div class="p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900" id="row-modal-title">Edit Baris Data</h3>
+                    <p class="text-[10px] text-slate-450 mt-0.5">Isi semua kolom database yang diperlukan dibawah.</p>
+                </div>
+                
+                <button
+                    onclick="closeRowDialogueModal()"
+                    class="w-7 h-7 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                >
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            
+            <form id="row-modal-form" onsubmit="handleRowModalFormSubmit(event)" class="p-5 space-y-4 max-h-[380px] overflow-y-auto">
+                <input type="hidden" id="raw-modal-index-hidden" value="" />
+                <div id="row-modal-fields-mapped" class="space-y-4">
+                    
+                </div>
+            </form>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                    type="button"
+                    onclick="closeRowDialogueModal()"
+                    class="px-4 py-2 hover:bg-slate-100 border border-slate-250 text-slate-600 rounded-xl text-xs font-semibold cursor-pointer transition"
+                >
+                    Batalkan
+                </button>
+                <button
+                    type="submit"
+                    form="row-modal-form"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition hover:shadow-md cursor-pointer"
+                >
+                    Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="lightbox-modal" class="hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col">
+        
+        <div class="p-4 flex items-center justify-between text-white z-10 bg-gradient-to-b from-black/80 to-transparent">
+            <div>
+                <h4 id="lightbox-item-title" class="text-xs font-bold leading-tight">Nama_Gambar.jpg</h4>
+                <p id="lightbox-item-size" class="text-[9px] text-slate-400 font-mono">1.2 MB - 20 Mei 2026</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button
+                    id="lightbox-download-action-btn"
+                    class="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition cursor-pointer"
+                    title="Unduh file asli"
+                >
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                </button>
+                <button
+                    onclick="closeLightboxModal()"
+                    class="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-600 text-white flex items-center justify-center transition cursor-pointer"
+                >
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        
+        <div class="flex-grow flex items-center justify-center p-4">
+            <img id="lightbox-main-img" src="" alt="View" class="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-neutral-800" />
+        </div>
+    </div>
+
+    <div id="doc-preview-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl overflow-hidden w-full max-w-5xl h-full max-h-[90vh] shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between gap-4 p-4 border-b border-slate-200">
+                <div>
+                    <h4 id="doc-preview-title" class="text-sm font-bold text-slate-900">Preview Dokumen</h4>
+                    <p id="doc-preview-info" class="text-[10px] text-slate-500 mt-1">Lihat dokumen pendukung di sini.</p>
+                </div>
+                <button onclick="closeDocPreviewModal()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="doc-preview-content" class="flex-grow bg-slate-950 overflow-auto"></div>
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-3">
+                <button id="doc-preview-open-btn" onclick="openDocInNewTab()" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-semibold transition">Buka di Tab Baru</button>
+                <button onclick="closeDocPreviewModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-semibold transition">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    
+    <div id="doc-category-modal" class="hidden fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div class="bg-white rounded-3xl border border-slate-200/80 w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+            <div class="p-5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Pilih Kategori Dokumen</h3>
+                    <p class="text-[10px] text-slate-450 mt-0.5">Tentukan kategori untuk dokumen ini atau buat kategori baru.</p>
+                </div>
+                <button
+                    onclick="closeCategoryModal()"
+                    class="w-7 h-7 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                >
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-3">
+                
+                <div id="doc-category-options" class="space-y-2">
+                    <button onclick="selectCategory('dokumen')" class="category-option w-full text-left p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition" data-value="dokumen">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="file" class="w-4 h-4 text-slate-500"></i>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900">Dokumen</p>
+                                <p class="text-[9px] text-slate-500">Dokumen umum</p>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="selectCategory('warta_gereja')" class="category-option w-full text-left p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition" data-value="warta_gereja">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="newspaper" class="w-4 h-4 text-slate-500"></i>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900">Warta Gereja</p>
+                                <p class="text-[9px] text-slate-500">Berita dan informasi jemaat</p>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="selectCategory('surat_menyurat')" class="category-option w-full text-left p-3 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition" data-value="surat_menyurat">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="mail" class="w-4 h-4 text-slate-500"></i>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900">Surat Menyurat</p>
+                                <p class="text-[9px] text-slate-500">Korespondensi resmi</p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+
+                
+                <div class="pt-2 border-t border-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-600 mb-2">Kategori Custom</p>
+                    <div id="doc-custom-categories" class="space-y-2">
+                        
+                    </div>
+                    <button onclick="toggleAddCustomCategory()" class="w-full text-left p-3 rounded-xl border border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/50 transition text-[10px] font-semibold text-slate-600 flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Tambah Kategori Custom</span>
+                    </button>
+                </div>
+
+                
+                <div id="doc-custom-input-area" class="hidden pt-2 border-t border-slate-200 space-y-2">
+                    <input type="text" id="doc-custom-category-input" placeholder="Nama kategori baru..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl outline-none transition focus:bg-white" />
+                    <div class="flex gap-2">
+                        <button onclick="saveCustomCategory()" class="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-semibold transition">Simpan</button>
+                        <button onclick="toggleAddCustomCategory()" class="flex-1 py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-semibold transition">Batal</button>
+                    </div>
+                </div>
+                
+                <div id="doc-upload-progress-area" class="pt-3 border-t border-slate-200 hidden">
+                    <p class="text-[10px] font-semibold text-slate-600 mb-2">Status Unggah</p>
+                    <div id="doc-upload-progress-list" class="space-y-2 max-h-48 overflow-y-auto">
+                        <!-- Per-file progress entries akan muncul di sini -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeCategoryModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-[10px] font-semibold transition">Batal</button>
+                <button id="doc-category-action-btn" onclick="proceedUploadDocWithCategory()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-semibold transition">Lanjutkan Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
