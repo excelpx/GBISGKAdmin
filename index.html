@@ -173,7 +173,6 @@
                     >
                         <i data-lucide="log-out" class="w-4 h-4"></i>
                     </button>
-
                     
                     <button
                         onclick="toggleMobileMenu()"
@@ -184,6 +183,14 @@
                         <i data-lucide="menu" id="mobile-menu-icon" class="w-4.5 h-4.5"></i>
                     </button>
                 </div>
+                                    <input
+                                        type="file"
+                                        id="doc-hidden-file-input"
+                                        accept="*/*"
+                                        multiple
+                                        onchange="handleDocLocalUpload(event)"
+                                        class="hidden"
+                                          />
             </div>
         </header>
 
@@ -628,14 +635,7 @@
                                         multiple
                                         onchange="handleDocLocalUpload(event)"
                                         class="hidden"
-                                    />
-                                    <input
-                                        type="file"
-                                        id="doc-hidden-file-input"
-                                        accept="*/*"
-                                        multiple
-                                        onchange="handleDocLocalUpload(event)"
-                                        class="hidden"
+                                
                                     />
                                     <input
                                         type="file"
@@ -999,4 +999,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
